@@ -51,10 +51,7 @@ class Task(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # objects = 
     custom_object = TaskManager()
-
-
 
     def __str__(self):
         return f"{self.title} - {self.status}"
