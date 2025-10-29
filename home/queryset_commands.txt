@@ -1,0 +1,185 @@
+# 1. Difference between Object and Queryset
+Student.objects.get(id=1)              # returns single object
+Student.objects.filter(id=1)           # returns queryset
+
+# 2. Get
+Student.objects.get(name='Ali')
+
+# 3. Filter (nested filter), and/or/not operations
+from django.db.models import Q
+Student.objects.filter(age__gte=20, marks__lte=90)
+Student.objects.filter(Q(age__gte=20) | Q(marks__lte=90))
+Student.objects.filter(~Q(name='Ali'))
+
+# 4. only()
+Student.objects.only('name', 'marks')
+
+# 5. values()
+Student.objects.values('name', 'marks')
+
+# 6. values_list() and flat=True
+Student.objects.values_list('name', flat=True)
+
+# 7. order_by()
+Student.objects.order_by('-marks')
+
+# 8. Save
+student = Student.objects.get(id=1)
+student.marks = 90
+student.save()
+
+# 9. Lookups (__in, __icontains, __isnull, __lte, __gte)
+Student.objects.filter(name__in=['Ali', 'Sara'])
+Student.objects.filter(name__icontains='ali')
+Student.objects.filter(age__isnull=True)
+Student.objects.filter(marks__lte=80)
+Student.objects.filter(marks__gte=50)
+
+# 10. exists()
+Student.objects.filter(marks__gte=80).exists()
+
+# 11. count()
+Student.objects.count()
+
+# 12. exclude()
+Student.objects.exclude(name='Ali')
+
+# 13. aggregate()
+from django.db.models import Avg, Sum, Max, Min
+Student.objects.aggregate(Avg('marks'), Max('marks'))
+
+# 14. annotate()
+Student.objects.annotate(total_marks=Sum('marks'))
+
+# 15. Case When
+from django.db.models import Case, When, Value, CharField
+Student.objects.annotate(
+    grade=Case(
+        When(marks__gte=80, then=Value('A')),
+        When(marks__gte=60, then=Value('B')),
+        default=Value('C'),
+        output_field=CharField()
+    )
+)
+
+# 16. select_related() — for ForeignKey
+Task.objects.select_related('project').all()
+
+# 17. prefetch_related() — for ManyToMany
+Project.objects.prefetch_related('team_members').all()
+
+# 18. Update
+Student.objects.filter(name='Ali').update(marks=90)
+
+# 19. Delete
+Student.objects.filter(name='Sara').delete()
+
+# 20. Create
+Student.objects.create(name='Hamza', marks=75)
+
+# 21. bulk_create
+students = [Student(name='A', marks=60), Student(name='B', marks=70)]
+Student.objects.bulk_create(students)
+
+# 22. bulk_update
+students = Student.objects.filter(name__in=['A', 'B'])
+for s in students:
+    s.marks += 5
+Student.objects.bulk_update(students, ['marks'])
+
+# 23. get_or_create
+Student.objects.get_or_create(name='Ali', defaults={'marks': 90})
+
+# 24. update_or_create
+Student.objects.update_or_create(name='Ali', defaults={'marks': 95})
+
+# 25. Union and Intersection
+q1 = Student.objects.filter(marks__gte=80)
+q2 = Student.objects.filter(age__lte=20)
+q1.union(q2)
+q1.intersection(q2)
+
+# 26. F, SUM, Q, COUNT
+from django.db.models import F
+Student.objects.update(marks=F('marks') + 5)
+
+
+
+# 28. auto_now_add / auto_now (DateTimeField)
+created_at = models.DateTimeField(auto_now_add=True)
+updated_at = models.DateTimeField(auto_now=True)
+
+# 29. defer() and only()
+Student.objects.defer('marks')   # Skip loading marks field
+Student.objects.only('name')     # Load only name field
+
+# 30. iterator()
+for student in Student.objects.iterator():
+    print(student.name)
+
+# 31. distinct()
+Student.objects.values('name').distinct()
+
+# 32. reverse()
+Student.objects.order_by('name').reverse()
+
+# 33. none() and all()
+Student.objects.none()
+Student.objects.all()
+
+#34 OuterRef and subquery
+from django.db.models import Subquery, OuterRef, Count
+
+open_tasks = Task.objects.filter(project=OuterRef('pk'), status='open')
+projects = Project.objects.annotate(open_task_count=Subquery(open_tasks.values('project').annotate(c=Count('*')).values('c')[:1]))
+
+#35 Lower function
+from django.db.models.functions import Lower
+
+Task.objects.annotate(
+    lower_name=Lower('name')
+)
+
+#36 concat function
+from django.db.models import Value
+from django.db.models.functions import Concat
+
+Project.objects.annotate(
+    full_name=Concat('name', Value(' - '), 'description')
+).values('full_name')
+
+#36 Coalesce function
+from django.db.models.functions import Coalesce
+from django.db.models import Value
+
+Task.objects.annotate(
+    safe_description=Coalesce('description', Value('No description available'))
+).
+
+#37 Truncdata function
+from django.db.models.functions import TruncDate
+
+Task.objects.annotate(
+    created_date=TruncDate('created_at')
+)
+
+#38 transactions
+
+from django.db import transaction
+
+try:
+    with transaction.atomic():
+        order = Order.objects.create(user=user, total=100)
+        payment = Payment.objects.create(order=order, status='Success')
+        raise Exception("Error!")  # simulate crash
+except:
+    print("Everything rolled back!")
+
+
+from django.db import transaction
+
+with transaction.atomic():
+    task = Task.objects.select_for_update().get(id=1)
+    task.status = 'In Progress'
+    task.save()
+
